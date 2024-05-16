@@ -1,59 +1,43 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.7;
 
-import "@zetachain/protocol-contracts/contracts/zevm/SystemContract.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/interfaces/zContract.sol";
-import "@zetachain/toolkit/contracts/OnlySystem.sol";
+import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@zetachain/protocol-contracts/contracts/evm/tools/ZetaInteractor.sol";
+import "@zetachain/protocol-contracts/contracts/evm/interfaces/ZetaInterfaces.sol";
+import "@zetachain/protocol-contracts/contracts/evm/ZetaConnector.base.sol";
 
-contract MyContract is zContract, OnlySystem {
-    SystemContract public systemContract;
-    uint256 constant BITCOIN = 18332; 
+contract MyContract is ZetaInteractor {
 
-    constructor(address systemContractAddress) {
-        systemContract = SystemContract(systemContractAddress);
+    
+    ZetaTokenConsumer private immutable _zetaConsumer;
+    IERC20 internal immutable _zetaToken;
+
+    constructor(address connectorAddress, address zetaConsumerAddress) ZetaInteractor(connectorAddress) {
+        _zetaToken = IERC20(ZetaConnectorBase(connectorAddress).zetaToken());
+        _zetaConsumer = ZetaTokenConsumer(zetaConsumerAddress);
     }
 
-    function onCrossChainCall(
-        zContext calldata context,
-        address zrc20,
-        uint256 amount,
-        bytes calldata message
-    ) external virtual override onlySystem(systemContract) {
-        address targetTokenAddress;
-        bytes memory recipientAddress;
+    function sendMessage(uint256 destinationChainId) external payable {
+        if (!_isValidChainId(destinationChainId))
+            revert InvalidDestinationChainId();
 
-        if (context.chainId == BITCOIN) {
-            targetTokenAddress = BytesHelperLib.bytesToAddress(message, 0);
-            recipientAddress = abi.encodePacked(
-                BytesHelperLib.bytesToAddress(message, 20);
-            );
-        } else {
-            (address targetToken, bytes memory recipient) = abi.decode(
-                message,
-                (address, bytes)
-            );
-            targetTokenAddress = targetToken;
-            recipientAddress = recipient;
-        }
+        uint256 crossChainGas = 2 * (10 ** 18);
+        uint256 zetaValueAndGas = _zetaConsumer.getZetaFromEth{
+            value: msg.value
+        }(address(this), crossChainGas);
+        _zetaToken.approve(address(connector), zetaValueAndGas);
 
-        (address gasZRC20, uint256 gasFee) = IZRC20(targetTokenAddress).withdrawGasFee();
-
-        uint256 inputForGas = SwapHelperLib.swapTokensForExactTokens(
-            systemContract,
-            zrc20,
-            gasFee,
-            gasZRC20,
-            amount
+        connector.send(
+            ZetaInterfaces.SendInput({
+                destinationChainId: destinationChainId,
+                destinationAddress: interactorsByChainId[destinationChainId],
+                destinationGasLimit: 300000,
+                message: abi.encode(),
+                zetaValueAndGas: zetaValueAndGas,
+                zetaParams: abi.encode("")
+            })
         );
-        uint256 outputAmount = SwapHelperLib.swapTokensForExactTokens (
-            systemContract,
-            zrc20,
-            amount - inputForGas,
-            targetTokenAddress,
-            0
+    }
 
-        );
-        IZRC20(gasZRC20).approve(targetTokenAddress, gasFee);
-        IZRC20(targetTokenAddress).withdraw(recipientAddress, outputAmount)
-      
 }

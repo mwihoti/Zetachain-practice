@@ -12,8 +12,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const data = prepareData(
     args.contract,
-    ["address", "string", "uint256", ],
-    [args.recepient, args.description, args.quantity, ]
+    [],
+    []
   );
 
   let tx;
@@ -61,6 +61,3 @@ task("interact", "Interact with the contract", main)
   .addParam("amount", "Amount of tokens to send")
   .addOptionalParam("token", "The address of the token to send")
   .addFlag("json", "Output in JSON")
-  .addParam("recepient")
-  .addParam("description")
-  .addParam("quantity")
