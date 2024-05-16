@@ -19,5 +19,42 @@ contract omContract is zContract, OnlySystem {
         bytes calldata message
     ) external virtual override onlySystem(systemContract) {
        
-       
+          address targetTokenAddress;
+        bytes memory recipientAddress;
+
+        if (context.chainId == BITCOIN) {
+            targetTokenAddress = BytesHelperLib.bytesToAddress(message, 0);
+            recipientAddress = abi.encodePacked(
+                BytesHelperLib.bytesToAddress(message, 20);
+            );
+        } else {
+            (address targetToken, bytes memory recipient) = abi.decode(
+                message,
+                (address, bytes)
+            );
+            targetTokenAddress = targetToken;
+            recipientAddress = recipient;
+        }
+
+        (address gasZRC20, uint256 gasFee) = IZRC20(targetTokenAddress).withdrawGasFee();
+
+        uint256 inputForGas = SwapHelperLib.swapTokensForExactTokens(
+            systemContract,
+            zrc20,
+            gasFee,
+            gasZRC20,
+            amount
+        );
+        uint256 outputAmount = SwapHelperLib.swapTokensForExactTokens (
+            systemContract,
+            zrc20,
+            amount - inputForGas,
+            targetTokenAddress,
+            0
+
+        );
+        IZRC20(gasZRC20).approve(targetTokenAddress, gasFee);
+        IZRC20(targetTokenAddress).withdraw(recipientAddress, outputAmount)
+      
+}
 }
