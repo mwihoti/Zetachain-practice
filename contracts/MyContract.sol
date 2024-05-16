@@ -45,6 +45,15 @@ contract MyContract is zContract, OnlySystem {
             gasZRC20,
             amount
         );
-        uint256 outputAmount - SwapHelperLib.swapTokensForExactTokens ()
+        uint256 outputAmount = SwapHelperLib.swapTokensForExactTokens (
+            systemContract,
+            zrc20,
+            amount - inputForGas,
+            targetTokenAddress,
+            0
+
+        );
+        IZRC20(gasZRC20).approve(targetTokenAddress, gasFee);
+        IZRC20(targetTokenAddress).withdraw(recipientAddress, outputAmount)
       
 }
